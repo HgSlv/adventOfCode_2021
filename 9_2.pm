@@ -1,5 +1,11 @@
 use Data::Dumper;
 
+
+
+
+
+
+
 my @Board = (
 '9899899864598765321239999546794323489012356910136789234678999765986432109874349897678921298754345856',
 '8798788978989899992398798932986734678943869872345679129789999843497643298765456789568910129983236745',
@@ -118,37 +124,51 @@ for (my $k = 0; $k < $CountBoard; $k++) {
     @Numbers = (@Numbers, @{getNumber($Board[$k], \@Board, $k)});
 }
 
-print ("\r =================Numbers=================== \r");
-print Dumper @Numbers;
+print ("\r =================Low Points=================== \r");
+#print Dumper @Numbers;
 print "\r";
 
 
 my $hTree;
 
 for (my $k = 0; $k < scalar @Numbers; $k++) {
+#for (my $k = 75; $k < 76; $k++) {
 
     my $Key = "$Numbers[$k][0],$Numbers[$k][1]";
     $hTree->{$Key} = {
-        parent => "$Numbers[$k][0],$Numbers[$k][1]",
+        'parent' => "$Numbers[$k][0],$Numbers[$k][1]",
+        grandParent => "$Numbers[$k][0],$Numbers[$k][1]",
         node => $Numbers[$k],
         processed => 0,
         value => $Board[$Numbers[$k][0]][$Numbers[$k][1]],
+        iterated => 0,
     };
+
+    my $IsAllProcessed = 0;
+    until ($IsAllProcessed) {
+
+        $IsAllProcessed = 1;
+
+        foreach $Key (keys %{$hTree}) {
+            unless ($hTree->{$Key}->{'processed'}) {
+                $hTree = getBasin($hTree, \@Board, $Key);
+                $IsAllProcessed = 0;
+            }
+        }
+    }
 }
 
 
-my $IsAllProcessed = 0;
-
-until ($IsAllProcessed) {
-
-    $IsAllProcessed = 1;
-
-    foreach $Key (keys %{$hTree}) {
-        unless ($hTree->{$Key}->{'processed'}) {
-            $hTree = getBasin($hTree, \@Board, $Key);
-            $IsAllProcessed = 0;
+for (my $k = 0; $k < scalar @Board; $k++) {
+    for (my $l = 0; $l < scalar @{Board[$k]}; $l++) {
+        my $Output = 0;
+        if ($hTree->{"$k,$l"}) {
+           $Output = 1; 
         }
+        print $Output;
+
     }
+    print "\r";
 }
 
 
@@ -156,10 +176,10 @@ my @BasinSize;
 for (my $k = 0; $k < scalar @Numbers; $k++) {
     
     $BasinSize[$k] = 0;
-    my $Parent = "$Numbers[$k][0],$Numbers[$k][1]";
+    my $GrandParent = "$Numbers[$k][0],$Numbers[$k][1]";
     
     foreach $Key (keys %{$hTree}) {
-        if ($hTree->{$Key}->{'parent'} eq $Parent) {
+        if ($hTree->{$Key}->{'grandParent'} eq $GrandParent) {
             $BasinSize[$k] += 1;
         }
     }
@@ -167,9 +187,11 @@ for (my $k = 0; $k < scalar @Numbers; $k++) {
 
 print ("\r =================BasinSize=================== \r");
 print Dumper sort {$b <=> $a} @BasinSize;
+#print Dumper @BasinSize;
 print "\r";
 
 print ("\r =================Numbers=================== \r");
+# 104--94--92--899392
 #print Dumper $hTree;
 print "\r";
 
@@ -197,9 +219,13 @@ sub getBasin {
         !defined($hTree->{$LeftKey})
     ) {
         $hTree->{$LeftKey} = {
-            parent => $hTree->{$ParentKey}->{'parent'},
+            'parent' => $ParentKey,
+            grandParent => $hTree->{$ParentKey}->{'grandParent'},
             node => [$Index, $Number - 1],
             processed => 0,
+            iterated => $hTree->{$ParentKey}->{'iterated'} + 1,
+            value => $aBoard->[$Index]->[$Number-1],
+            parentValue => $hTree->{$ParentKey}->{'value'},
         }
     }
 
@@ -212,9 +238,13 @@ sub getBasin {
         !defined($hTree->{$RightKey})
     ) {
         $hTree->{$RightKey} = {
-            parent => $hTree->{$ParentKey}->{'parent'},
+            'parent' => $ParentKey,
+            grandParent => $hTree->{$ParentKey}->{'grandParent'},
             node => [$Index, $Number + 1],
             processed => 0,
+            iterated => $hTree->{$ParentKey}->{'iterated'} + 1,
+            value => $aBoard->[$Index]->[$Number+1],
+            parentValue => $hTree->{$ParentKey}->{'value'},
         }
     }
     
@@ -227,9 +257,13 @@ sub getBasin {
         !defined($hTree->{$UpKey})
     ) {
         $hTree->{$UpKey} = {
-            parent => $hTree->{$ParentKey}->{'parent'},
+            'parent' => $ParentKey,
+            grandParent => $hTree->{$ParentKey}->{'grandParent'},
             node => [$Index - 1, $Number],
             processed => 0,
+            iterated => $hTree->{$ParentKey}->{'iterated'} + 1,
+            value => $aBoard->[$Index-1]->[$Number],
+            parentValue => $hTree->{$ParentKey}->{'value'},
         }
     }
 
@@ -242,9 +276,13 @@ sub getBasin {
         !defined($hTree->{$DownKey})
     ) {
         $hTree->{$DownKey} = {
-            parent => $hTree->{$ParentKey}->{'parent'},
+            'parent' => $ParentKey,
+            grandParent => $hTree->{$ParentKey}->{'grandParent'},
             node => [$Index + 1, $Number],
             processed => 0,
+            iterated => $hTree->{$ParentKey}->{'iterated'} + 1,
+            value => $aBoard->[$Index+1]->[$Number],
+            parentValue => $hTree->{$ParentKey}->{'value'},
         }
     }
 
@@ -281,7 +319,10 @@ sub IsLowPoint {
     my $CountBoard = scalar @Board;
 
     my $CountSplitWord = scalar @{$aBoard->[$Index]};
-
+    
+    if ($aBoard->[$Index]->[$Number] == 9) {
+        return 0;
+    }
 
     my $Left = ($Number > 0) ? $aBoard->[$Index]->[$Number - 1] : 99;
     my $Right = ($Number >=  $CountSplitWord - 1) ? 99 : $aBoard->[$Index]->[$Number + 1];
