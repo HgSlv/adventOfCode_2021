@@ -103,9 +103,6 @@ my @Board = (
 '7652369543498543678932197679886545799878998943219998999768998754545698765537678929876109876543467899',
 );
 
-
-my $aDictionaryCount = [2,3,4,7];
-
 my $CountBoard = scalar @Board;
 
 my @Numbers;
@@ -116,27 +113,145 @@ for (my $k = 0; $k < $CountBoard; $k++) {
     
 }
 
-
 for (my $k = 0; $k < $CountBoard; $k++) {
 
     @Numbers = (@Numbers, @{getNumber($Board[$k], \@Board, $k)});
 }
 
-
-my $Sum = 0;
-for (my $i = 0; $i < scalar @Numbers; $i++) {
-    $Sum += $Numbers[$i] + 1;
-}
-
-print ("\r =================Sum=================== \r");
-print $Sum;
-print "\r";
-
-
 print ("\r =================Numbers=================== \r");
 print Dumper @Numbers;
 print "\r";
 
+
+my $hTree;
+
+for (my $k = 0; $k < scalar @Numbers; $k++) {
+
+    my $Key = "$Numbers[$k][0],$Numbers[$k][1]";
+    $hTree->{$Key} = {
+        parent => "$Numbers[$k][0],$Numbers[$k][1]",
+        node => $Numbers[$k],
+        processed => 0,
+        value => $Board[$Numbers[$k][0]][$Numbers[$k][1]],
+    };
+}
+
+
+my $IsAllProcessed = 0;
+
+until ($IsAllProcessed) {
+
+    $IsAllProcessed = 1;
+
+    foreach $Key (keys %{$hTree}) {
+        unless ($hTree->{$Key}->{'processed'}) {
+            $hTree = getBasin($hTree, \@Board, $Key);
+            $IsAllProcessed = 0;
+        }
+    }
+}
+
+
+my @BasinSize;
+for (my $k = 0; $k < scalar @Numbers; $k++) {
+    
+    $BasinSize[$k] = 0;
+    my $Parent = "$Numbers[$k][0],$Numbers[$k][1]";
+    
+    foreach $Key (keys %{$hTree}) {
+        if ($hTree->{$Key}->{'parent'} eq $Parent) {
+            $BasinSize[$k] += 1;
+        }
+    }
+}
+
+print ("\r =================BasinSize=================== \r");
+print Dumper sort {$b <=> $a} @BasinSize;
+print "\r";
+
+print ("\r =================Numbers=================== \r");
+#print Dumper $hTree;
+print "\r";
+
+
+sub getBasin {
+    my ($hTree, $aBoard, $ParentKey) = @_;
+
+    if ($hTree->{$ParentKey}->{'processed'}) {
+        return 0;
+    }
+    
+    my $CountBoard = scalar @{$aBoard};
+    my $CountSplitWord = scalar @{$aBoard->[0]};
+    
+    my $Index = $hTree->{$ParentKey}->{'node'}->[0];
+    my $Number = $hTree->{$ParentKey}->{'node'}->[1];
+
+
+    my $Left = ($Number > 0) ? $aBoard->[$Index]->[$Number - 1] : -99;
+    $Left = ($Left == 9) ? -99 : $Left;
+    my $LeftKey = "$Index," . ($Number - 1);
+
+    if (
+        $aBoard->[$Index]->[$Number] == $Left - 1 &&
+        !defined($hTree->{$LeftKey})
+    ) {
+        $hTree->{$LeftKey} = {
+            parent => $hTree->{$ParentKey}->{'parent'},
+            node => [$Index, $Number - 1],
+            processed => 0,
+        }
+    }
+
+    my $Right = ($Number >=  $CountSplitWord - 1) ? -99 : $aBoard->[$Index]->[$Number + 1];
+    $Right = ($Right == 9) ? -99 : $Right;
+    my $RightKey = "$Index," . ($Number + 1);
+
+    if (
+        $aBoard->[$Index]->[$Number] == $Right - 1 &&
+        !defined($hTree->{$RightKey})
+    ) {
+        $hTree->{$RightKey} = {
+            parent => $hTree->{$ParentKey}->{'parent'},
+            node => [$Index, $Number + 1],
+            processed => 0,
+        }
+    }
+    
+    my $Up = ($Index == 0) ? -99 : $aBoard->[$Index - 1]->[$Number];
+    $Up = ($Up == 9) ? -99 : $Up;
+    my $UpKey = ($Index - 1) . ",$Number";
+
+    if (
+        $aBoard->[$Index]->[$Number] == $Up - 1 &&
+        !defined($hTree->{$UpKey})
+    ) {
+        $hTree->{$UpKey} = {
+            parent => $hTree->{$ParentKey}->{'parent'},
+            node => [$Index - 1, $Number],
+            processed => 0,
+        }
+    }
+
+    my $Down = ($Index >= $CountBoard - 1) ? -99 : $aBoard->[$Index + 1]->[$Number];
+    $Down = ($Down == 9) ? -99 : $Down;
+    my $DownKey = ($Index + 1) . ",$Number";
+
+    if (
+        $aBoard->[$Index]->[$Number] == $Down - 1 &&
+        !defined($hTree->{$DownKey})
+    ) {
+        $hTree->{$DownKey} = {
+            parent => $hTree->{$ParentKey}->{'parent'},
+            node => [$Index + 1, $Number],
+            processed => 0,
+        }
+    }
+
+    $hTree->{$ParentKey}->{'processed'} = 1;
+
+    return $hTree;
+}
 
 
 sub getNumber {
@@ -150,7 +265,7 @@ sub getNumber {
     for (my $k = 0; $k < $CountSplitWord; $k++) {
 
         if (IsLowPoint($aBoard, $Index, $k)) {
-            push(@Numbers, $aBoardLine->[$k]);
+            push(@Numbers, [$Index, $k]);
         }
 
     }
@@ -186,3 +301,7 @@ sub IsLowPoint {
 
     return 0
 }
+
+
+
+
